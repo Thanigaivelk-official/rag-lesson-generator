@@ -27,8 +27,8 @@ class Config:
     OPENAI_BASE_URL: str = os.getenv("OPENAI_BASE_URL", "")
 
     # Models (Defaults suited for Groq or OpenAI)
-    GENERATOR_MODEL: str = os.getenv("GENERATOR_MODEL", "llama-3.3-70b-versatile")
-    EVALUATOR_MODEL: str = os.getenv("EVALUATOR_MODEL", "llama-3.3-70b-versatile")
+    GENERATOR_MODEL: str = os.getenv("GENERATOR_MODEL", "openai/gpt-oss-20b")
+    EVALUATOR_MODEL: str = os.getenv("EVALUATOR_MODEL", "openai/gpt-oss-20b")
     GENERATOR_TEMPERATURE: float = float(os.getenv("GENERATOR_TEMPERATURE", "0.7"))
     EVALUATOR_TEMPERATURE: float = float(os.getenv("EVALUATOR_TEMPERATURE", "0.1"))
 

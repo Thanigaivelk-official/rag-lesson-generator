@@ -302,7 +302,8 @@ def evaluate_lesson(lesson_content: str, topic: str) -> EvaluationResult:
         logger.info("Evaluator: overall status = %s", result.overall_status)
         return result
 
-    # ---- Real LLM call ----
+    # ---- Real LLM call with Rate Limit retry handling ----
+    import time
     llm = _get_evaluator_llm()
     user_prompt = build_evaluator_user_prompt(lesson_content=lesson_content, topic=topic)
 
@@ -312,7 +313,23 @@ def evaluate_lesson(lesson_content: str, topic: str) -> EvaluationResult:
     ]
 
     logger.debug("Evaluator: calling LLM with model '%s'", config.EVALUATOR_MODEL)
-    response = llm.invoke(messages)
+
+    # Retry up to 3 times on 429 rate limit
+    for attempt_retry in range(3):
+        try:
+            response = llm.invoke(messages)
+            break
+        except Exception as err:
+            err_str = str(err).lower()
+            if "429" in err_str or "rate limit" in err_str:
+                sleep_secs = 12 if "openai/gpt-oss-120b" in config.EVALUATOR_MODEL else 5
+                logger.warning("Rate limit hit in evaluator, sleeping %d seconds...", sleep_secs)
+                time.sleep(sleep_secs)
+            else:
+                raise err
+    else:
+        response = llm.invoke(messages)
+
     raw: str = response.content.strip()  # type: ignore[union-attr]
 
     result = _parse_llm_evaluation(raw, lesson_content)

@@ -308,7 +308,8 @@ def generate_lesson(request: GenerationRequest) -> GeneratedLesson:
             attempt_number=request.attempt_number,
         )
 
-    # ---- Real LLM call ----
+    # ---- Real LLM call with Rate Limit retry handling ----
+    import time
     llm = _get_llm()
     user_prompt = build_generator_user_prompt(
         topic=request.topic,
@@ -324,7 +325,24 @@ def generate_lesson(request: GenerationRequest) -> GeneratedLesson:
     ]
 
     logger.debug("Generator: calling LLM with model '%s'", config.GENERATOR_MODEL)
-    response = llm.invoke(messages)
+
+    # Retry up to 3 times on 429 rate limit
+    for attempt_retry in range(3):
+        try:
+            response = llm.invoke(messages)
+            break
+        except Exception as err:
+            err_str = str(err).lower()
+            if "429" in err_str or "rate limit" in err_str:
+                sleep_secs = 12 if "openai/gpt-oss-120b" in config.GENERATOR_MODEL else 5
+                logger.warning("Rate limit hit in generator, sleeping %d seconds...", sleep_secs)
+                time.sleep(sleep_secs)
+            else:
+                raise err
+    else:
+        # Final attempt
+        response = llm.invoke(messages)
+
     content: str = response.content.strip()  # type: ignore[union-attr]
 
     # Extract title from first heading if present
